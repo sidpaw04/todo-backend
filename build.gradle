@@ -37,10 +37,12 @@ dependencies {
     // Security: Force latest secure versions to override vulnerable transitive dependencies
     implementation 'org.apache.commons:commons-lang3:3.18.0' // Override vulnerable 3.17.0
     implementation 'org.webjars:swagger-ui:5.27.1' // Override vulnerable swagger-ui version
+    implementation 'org.mapstruct:mapstruct:1.5.5.Final'
 
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	annotationProcessor 'org.projectlombok:lombok'
+    annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.5.Final'
 	runtimeOnly 'com.h2database:h2'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
