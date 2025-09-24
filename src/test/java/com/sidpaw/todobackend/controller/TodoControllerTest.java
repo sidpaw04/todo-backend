@@ -2,8 +2,11 @@ package com.sidpaw.todobackend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.sidpaw.todobackend.dto.TodoPatchDTO;
 import com.sidpaw.todobackend.dto.TodoRequestDTO;
 import com.sidpaw.todobackend.dto.TodoResponseDTO;
+import com.sidpaw.todobackend.entity.TodoItemEntity;
+import com.sidpaw.todobackend.exception.InvalidStatusException;
 import com.sidpaw.todobackend.model.TodoStatus;
 import com.sidpaw.todobackend.service.TodoItemService;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,8 +28,7 @@ import java.util.Optional;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
@@ -60,7 +62,7 @@ class TodoControllerTest {
         expectedResponse = new TodoResponseDTO(
                 1L,
                 "Complete project documentation",
-                TodoStatus.NOT_DONE,
+                "not done",
                 LocalDateTime.of(2025, 9, 23, 10, 0),
                 LocalDateTime.of(2025, 12, 31, 23, 59),
                 null
@@ -81,7 +83,7 @@ class TodoControllerTest {
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.id").value(1L))
                 .andExpect(jsonPath("$.description").value("Complete project documentation"))
-                .andExpect(jsonPath("$.status").value("NOT_DONE"));
+                .andExpect(jsonPath("$.status").value("not done"));
     }
 
     @Test
@@ -101,7 +103,7 @@ class TodoControllerTest {
         // Given
         List<TodoResponseDTO> expectedTodos = Arrays.asList(
                 expectedResponse,
-                new TodoResponseDTO(2L, "Another task", TodoStatus.DONE,
+                new TodoResponseDTO(2L, "Another task", "done",
                         LocalDateTime.of(2025, 9, 22, 9, 0),
                         LocalDateTime.of(2025, 9, 25, 17, 0),
                         LocalDateTime.of(2025, 9, 24, 16, 30))
@@ -185,6 +187,167 @@ class TodoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void givenValidTodoIdAndDescription_WhenPatchTodoItem_ThenReturnsUpdatedTodo() throws Exception {
+        // Given
+        TodoPatchDTO patchDTO = new TodoPatchDTO();
+        patchDTO.setDescription("Updated description");
+
+        TodoResponseDTO patchedResponse = new TodoResponseDTO(
+                1L,
+                "Updated description",
+                "not done",
+                LocalDateTime.of(2025, 9, 23, 10, 0),
+                LocalDateTime.of(2025, 12, 31, 23, 59),
+                null
+        );
+
+        when(todoItemService.patchTodo(eq(1L), any(TodoPatchDTO.class)))
+                .thenReturn(Optional.of(patchedResponse));
+
+        // When & Then
+        mockMvc.perform(patch("/api/todos/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(patchDTO)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.description").value("Updated description"))
+                .andExpect(jsonPath("$.status").value("not done"));
+    }
+
+    @Test
+    void givenValidTodoIdAndStatus_WhenPatchTodoItem_ThenReturnsUpdatedTodo() throws Exception {
+        // Given
+        TodoPatchDTO patchDTO = new TodoPatchDTO();
+        patchDTO.setStatus("done");
+
+        TodoResponseDTO patchedResponse = new TodoResponseDTO(
+                1L,
+                "Complete project documentation",
+                "done",
+                LocalDateTime.of(2025, 9, 23, 10, 0),
+                LocalDateTime.of(2025, 12, 31, 23, 59),
+                LocalDateTime.now()
+        );
+
+        when(todoItemService.patchTodo(eq(1L), any(TodoPatchDTO.class)))
+                .thenReturn(Optional.of(patchedResponse));
+
+        // When & Then
+        mockMvc.perform(patch("/api/todos/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\": \"done\"}"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.status").value("done"));
+    }
+
+    @Test
+    void givenPastDueStatus_WhenPatchTodoItem_ThenReturnsBadRequest() throws Exception {
+        // Given
+        TodoItemEntity existingTodo = new TodoItemEntity();
+        existingTodo.setId(1L);
+        existingTodo.setDescription("Original description");
+        existingTodo.setStatus(TodoStatus.NOT_DONE);
+        existingTodo.setCreationDatetime(LocalDateTime.now());
+
+        TodoPatchDTO patchDTO = new TodoPatchDTO();
+        patchDTO.setStatus("past due");
+
+        when(todoItemService.patchTodo(eq(1L), any(TodoPatchDTO.class)))
+                .thenThrow(new InvalidStatusException("Status can only be set to 'done' or 'not done'"));
+
+        // When & Then
+        mockMvc.perform(patch("/api/todos/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\": \"past due\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Invalid Status"))
+                .andExpect(jsonPath("$.message").value("Status can only be set to 'done' or 'not done'"));
+    }
+
+    @Test
+    void givenInvalidTodoId_WhenPatchTodoItem_ThenReturnsBadRequest() throws Exception {
+        // Given
+        TodoPatchDTO patchDTO = new TodoPatchDTO();
+        patchDTO.setDescription("Updated description");
+
+        // When & Then
+        mockMvc.perform(patch("/api/todos/invalid")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(patchDTO)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void givenNonExistingTodoId_WhenPatchTodoItem_ThenReturnsNotFound() throws Exception {
+        // Given
+        TodoPatchDTO patchDTO = new TodoPatchDTO();
+        patchDTO.setDescription("Updated description");
+
+        when(todoItemService.patchTodo(eq(999L), any(TodoPatchDTO.class)))
+                .thenReturn(Optional.empty());
+
+        // When & Then
+        mockMvc.perform(patch("/api/todos/999")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(patchDTO)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void givenTooLongDescription_WhenPatchTodoItem_ThenReturnsBadRequest() throws Exception {
+        // Given - description exceeds 1000 characters
+        String longDescription = "a".repeat(1001);
+        TodoPatchDTO patchDTO = new TodoPatchDTO();
+        patchDTO.setDescription(longDescription);
+
+        // When & Then
+        mockMvc.perform(patch("/api/todos/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(patchDTO)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void givenInvalidStatus_WhenPatchTodoItem_ThenReturnsBadRequest() throws Exception {
+        // Given
+        TodoPatchDTO patchDTO = new TodoPatchDTO();
+        patchDTO.setStatus("invalid status");
+
+        when(todoItemService.patchTodo(eq(1L), any(TodoPatchDTO.class)))
+                .thenThrow(new InvalidStatusException("Status can only be set to 'done' or 'not done'"));
+
+        // When & Then
+        mockMvc.perform(patch("/api/todos/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(patchDTO)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Invalid Status"))
+                .andExpect(jsonPath("$.message").value("Status can only be set to 'done' or 'not done'"));
+    }
+
+    @Test
+    void givenEmptyPatchBody_WhenPatchTodoItem_ThenReturnsUnmodifiedTodo() throws Exception {
+        // Given
+        TodoPatchDTO patchDTO = new TodoPatchDTO();
+
+        when(todoItemService.patchTodo(eq(1L), any(TodoPatchDTO.class)))
+                .thenReturn(Optional.of(expectedResponse));
+
+        // When & Then
+        mockMvc.perform(patch("/api/todos/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(patchDTO)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.description").value("Complete project documentation"))
+                .andExpect(jsonPath("$.status").value("not done"));
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.sidpaw.todobackend.controller;
 
 
+import com.sidpaw.todobackend.dto.TodoPatchDTO;
 import com.sidpaw.todobackend.dto.TodoRequestDTO;
 import com.sidpaw.todobackend.dto.TodoResponseDTO;
 import com.sidpaw.todobackend.service.TodoItemService;
@@ -70,6 +71,24 @@ public class TodoController {
         
         return todoItem.map(ResponseEntity::ok)
                       .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PatchMapping("/{id}")
+    @Operation(summary = "Partially update a todo item", description = "Updates specified fields of a todo item")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Todo item updated successfully"),
+            @ApiResponse(responseCode = "404", description = "Todo item not found")
+    })
+    public ResponseEntity<TodoResponseDTO> patchTodoItem(
+            @Parameter(description = "ID of the todo item to update") 
+            @PathVariable Long id, 
+            @Valid @RequestBody TodoPatchDTO patchRequest) {
+        
+        log.info("Received request to patch todo item with ID: {}", id);
+        Optional<TodoResponseDTO> updatedTodoItem = todoItemService.patchTodo(id, patchRequest);
+        
+        return updatedTodoItem.map(ResponseEntity::ok)
+                              .orElse(ResponseEntity.notFound().build());
     }
 
 }

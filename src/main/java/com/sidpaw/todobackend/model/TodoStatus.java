@@ -22,4 +22,8 @@ public enum TodoStatus {
     public String toString() {
         return displayName;
     }
+
+    public static boolean isUpdatableStatus(TodoStatus status) {
+        return status == TodoStatus.DONE || status == TodoStatus.NOT_DONE;
+    }
 }

@@ -1,5 +1,6 @@
 package com.sidpaw.todobackend.mapper;
 
+import com.sidpaw.todobackend.dto.TodoPatchDTO;
 import com.sidpaw.todobackend.dto.TodoRequestDTO;
 import com.sidpaw.todobackend.dto.TodoResponseDTO;
 import com.sidpaw.todobackend.entity.TodoItemEntity;
@@ -10,9 +11,12 @@ import org.mapstruct.factory.Mappers;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for TodoItemMapper.
@@ -80,7 +84,7 @@ class TodoItemMapperTest {
         assertThat(result).isNotNull();
         assertThat(result.getId()).isEqualTo(1L);
         assertThat(result.getDescription()).isEqualTo("Complete project documentation");
-        assertThat(result.getStatus()).isEqualTo(TodoStatus.NOT_DONE);
+        assertThat(result.getStatus()).isEqualTo(TodoStatus.NOT_DONE.getDisplayName());
         assertThat(result.getCreationDatetime()).isEqualTo(LocalDateTime.of(2025, 9, 23, 10, 0));
         assertThat(result.getDueDatetime()).isEqualTo(LocalDateTime.of(2025, 12, 31, 23, 59));
         assertThat(result.getDoneDatetime()).isNull();
@@ -97,7 +101,7 @@ class TodoItemMapperTest {
 
         // Then
         assertThat(result).isNotNull();
-        assertThat(result.getStatus()).isEqualTo(TodoStatus.DONE);
+        assertThat(result.getStatus()).isEqualTo(TodoStatus.DONE.getDisplayName());
         assertThat(result.getDoneDatetime()).isEqualTo(LocalDateTime.of(2025, 10, 1, 15, 30));
     }
 
@@ -120,22 +124,22 @@ class TodoItemMapperTest {
         assertThat(result).isNotNull();
         assertThat(result).hasSize(2);
         
-        TodoResponseDTO first = result.get(0);
+        TodoResponseDTO first = result.getFirst();
         assertThat(first.getId()).isEqualTo(1L);
         assertThat(first.getDescription()).isEqualTo("Complete project documentation");
-        assertThat(first.getStatus()).isEqualTo(TodoStatus.NOT_DONE);
+        assertThat(first.getStatus()).isEqualTo(TodoStatus.NOT_DONE.getDisplayName());
 
         TodoResponseDTO second = result.get(1);
         assertThat(second.getId()).isEqualTo(2L);
         assertThat(second.getDescription()).isEqualTo("Another task");
-        assertThat(second.getStatus()).isEqualTo(TodoStatus.DONE);
+        assertThat(second.getStatus()).isEqualTo(TodoStatus.DONE.getDisplayName());
         assertThat(second.getDoneDatetime()).isEqualTo(LocalDateTime.of(2025, 9, 24, 16, 30));
     }
 
     @Test
     void givenEmptyList_WhenToResponseDTOList_ThenReturnsEmptyList() {
         // Given
-        List<TodoItemEntity> emptyList = Arrays.asList();
+        List<TodoItemEntity> emptyList = List.of();
 
         // When
         List<TodoResponseDTO> result = mapper.toResponseDTOList(emptyList);
@@ -179,7 +183,7 @@ class TodoItemMapperTest {
     @Test
     void givenSingletonList_WhenToResponseDTOList_ThenReturnsSingleItem() {
         // Given
-        List<TodoItemEntity> singletonList = Arrays.asList(entity);
+        List<TodoItemEntity> singletonList = Collections.singletonList(entity);
 
         // When
         List<TodoResponseDTO> result = mapper.toResponseDTOList(singletonList);
@@ -187,9 +191,9 @@ class TodoItemMapperTest {
         // Then
         assertThat(result).isNotNull();
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getId()).isEqualTo(1L);
-        assertThat(result.get(0).getDescription()).isEqualTo("Complete project documentation");
-        assertThat(result.get(0).getStatus()).isEqualTo(TodoStatus.NOT_DONE);
+        assertThat(result.getFirst().getId()).isEqualTo(1L);
+        assertThat(result.getFirst().getDescription()).isEqualTo("Complete project documentation");
+        assertThat(result.getFirst().getStatus()).isEqualTo(TodoStatus.NOT_DONE.getDisplayName());
     }
 
     @Test
@@ -208,5 +212,20 @@ class TodoItemMapperTest {
 
         // Then
         assertThat(result).isNull();
+    }
+
+    @Test
+    void givenNullStatusInTodoItemEntity_WhenToResponseDTO_ThenMapsStatusAsNull() {
+        // Given
+        entity.setStatus(null);
+        entity.setDoneDatetime(LocalDateTime.of(2025, 10, 1, 15, 30));
+
+        // When
+        TodoResponseDTO result = mapper.toResponseDTO(entity);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getStatus()).isNull();
+        assertThat(result.getDoneDatetime()).isEqualTo(LocalDateTime.of(2025, 10, 1, 15, 30));
     }
 }
