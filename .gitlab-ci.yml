@@ -1,0 +1,71 @@
+image: eclipse-temurin:21-jdk
+
+variables:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+  DOCKER_IMAGE_NAME: "todo-backend"
+
+stages:
+  - test
+  - build
+  - package
+  - deploy
+
+before_script:
+  - chmod +x gradlew
+
+test:
+  stage: test
+  script:
+    - ./gradlew test
+  artifacts:
+    reports:
+      junit: build/test-results/test/**/TEST-*.xml
+    paths:
+      - build/reports/jacoco/test/
+  coverage: '/Total.*?([0-9]{1,3})%/'
+
+build:
+  stage: build
+  script:
+    - ./gradlew build
+  artifacts:
+    paths:
+      - build/libs/*.jar
+    expire_in: 1 week
+
+docker-build:
+  stage: package
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+    - |
+      if [ "$CI_COMMIT_BRANCH" == "main" ]; then
+        docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA $CI_REGISTRY_IMAGE:latest
+        docker push $CI_REGISTRY_IMAGE:latest
+      fi
+
+deploy-dev:
+  stage: deploy
+  script:
+    - echo "Deploy to development server"
+  environment:
+    name: development
+  only:
+    - develop
+
+deploy-prod:
+  stage: deploy
+  script:
+    - echo "Deploy to production server"
+  environment:
+    name: production
+  only:
+    - main
+  when: manual
