@@ -302,4 +302,25 @@ class TodoItemServiceUnitTest {
                 .isInstanceOf(InvalidStatusException.class)
                 .hasMessageContaining("Invalid status");
     }
+
+    @Test
+    void givenPastDueItem_whenPatchTodo_thenThrowsException() {
+        // Given
+        TodoPatchDTO patchDTO = new TodoPatchDTO();
+        patchDTO.setDescription("Updated description");
+
+        TodoItemEntity pastDueItem = new TodoItemEntity();
+        pastDueItem.setId(1L);
+        pastDueItem.setDescription("Past due item");
+        pastDueItem.setStatus(TodoStatus.PAST_DUE);
+
+        when(todoItemRepository.findById(1L)).thenReturn(Optional.of(pastDueItem));
+
+        // When & Then
+        assertThatThrownBy(() -> todoItemService.patchTodo(1L, patchDTO))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Cannot update a past due item");
+
+        verify(todoItemRepository, never()).save(any());
+    }
 }

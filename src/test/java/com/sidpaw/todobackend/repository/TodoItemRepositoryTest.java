@@ -183,7 +183,7 @@ class TodoItemRepositoryTest {
 
     @Test
     void givenNoItems_WhenFindNotDoneItems_ThenReturnsEmptyList() {
-        List<TodoItemEntity> result = todoItemRepository.findNotDoneItems(LocalDateTime.now());
+        List<TodoItemEntity> result = todoItemRepository.findNotDoneItems(LocalDateTime.now(), TodoStatus.NOT_DONE);
         assertThat(result).isEmpty();
     }
 
@@ -195,7 +195,7 @@ class TodoItemRepositoryTest {
         todoItemRepository.saveAll(List.of(item1, item2));
 
         // When
-        List<TodoItemEntity> result = todoItemRepository.findNotDoneItems(LocalDateTime.now());
+        List<TodoItemEntity> result = todoItemRepository.findNotDoneItems(LocalDateTime.now(), TodoStatus.NOT_DONE);
 
         // Then
         assertThat(result)
@@ -214,7 +214,7 @@ class TodoItemRepositoryTest {
         todoItemRepository.saveAll(List.of(pastDue, futureDue, noDueDate));
 
         // When
-        List<TodoItemEntity> result = todoItemRepository.findNotDoneItems(now);
+        List<TodoItemEntity> result = todoItemRepository.findNotDoneItems(now, TodoStatus.NOT_DONE);
 
         // Then
         assertThat(result)

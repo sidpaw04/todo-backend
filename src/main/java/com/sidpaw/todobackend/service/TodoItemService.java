@@ -77,6 +77,11 @@ public class TodoItemService {
     }
 
     private TodoItemEntity updateTodoFields(TodoItemEntity todo, TodoPatchDTO patchDTO) {
+        // Prevent updates to past due items
+        if (todo.getStatus() == TodoStatus.PAST_DUE) {
+            throw new IllegalStateException("Cannot update a past due item");
+        }
+
         Optional.ofNullable(patchDTO.getDescription())
                 .ifPresent(todo::setDescription);
                 
@@ -84,20 +89,28 @@ public class TodoItemService {
                 .ifPresent(statusStr -> {
                     TodoStatus status = convertToTodoStatus(statusStr);
                     todo.setStatus(status);
+                    
+                    // Set the done datetime when the item is marked as done
+                    if (status == TodoStatus.DONE) {
+                        todo.setDoneDatetime(LocalDateTime.now());
+                    }
                 });
         
         return todo;
     }
 
     private TodoStatus convertToTodoStatus(String statusStr) {
-        String normalizedStatus = statusStr.toLowerCase();
-        return Arrays.stream(TodoStatus.values())
-                .filter(status -> status.getDisplayName().equals(normalizedStatus))
-                .filter(TodoStatus::isUpdatableStatus)
-                .findFirst()
-                .orElseThrow(() -> new InvalidStatusException(
-                    String.format("Invalid status value: '%s'. Valid values are: 'done', 'not done'", statusStr)
-                ));
+        // Call TodoStatus.from to convert string to enum using the existing utility method
+        TodoStatus requestedStatus = TodoStatus.from(statusStr.toLowerCase());
+        
+        // Verify that we can update to this status
+        if (!TodoStatus.isUpdatableStatus(requestedStatus)) {
+            throw new InvalidStatusException(
+                String.format("Invalid status value: '%s'. Valid values are: 'done', 'not done'", statusStr)
+            );
+        }
+        
+        return requestedStatus;
     }
 
     public List<TodoResponseDTO> getTodoItemsByStatus(String requestedStatus) {
@@ -105,7 +118,7 @@ public class TodoItemService {
         TodoStatus status = TodoStatus.from(requestedStatus);
         
         return (status.equals(TodoStatus.NOT_DONE)
-                ? todoItemRepository.findNotDoneItems(LocalDateTime.now())
+                ? todoItemRepository.findNotDoneItems(LocalDateTime.now(), TodoStatus.NOT_DONE)
                 : todoItemRepository.findByStatusOrderByCreationDatetimeDesc(status))
                 .stream()
                 .map(todoItemMapper::toResponseDTO)
