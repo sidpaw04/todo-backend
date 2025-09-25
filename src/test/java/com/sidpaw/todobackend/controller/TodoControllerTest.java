@@ -19,12 +19,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -43,15 +45,16 @@ class TodoControllerTest {
     private MockMvc mockMvc;
 
     @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
     private TodoItemService todoItemService;
 
-    private ObjectMapper objectMapper;
     private TodoRequestDTO validRequest;
     private TodoResponseDTO expectedResponse;
 
     @BeforeEach
     void setUp() {
-        objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
 
         validRequest = new TodoRequestDTO(
@@ -350,13 +353,89 @@ class TodoControllerTest {
                 .andExpect(jsonPath("$.status").value("not done"));
     }
 
+    @Test
+    void givenValidStatus_WhenGetTodoItems_ThenReturnsFilteredItems() throws Exception {
+        // Given
+        List<TodoResponseDTO> items = List.of(
+            new TodoResponseDTO(1L, "Task 1", "not done", LocalDateTime.now(), null, null),
+            new TodoResponseDTO(2L, "Task 2", "not done", LocalDateTime.now(), null, null)
+        );
+        
+        when(todoItemService.getTodoItemsByStatus("not done")).thenReturn(items);
+
+        // When
+        MvcResult result = mockMvc.perform(get("/api/todos")
+                .param("status", "not done"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andReturn();
+
+        // Then
+        List<TodoResponseDTO> responseItems = objectMapper.readValue(
+            result.getResponse().getContentAsString(),
+            objectMapper.getTypeFactory().constructCollectionType(List.class, TodoResponseDTO.class)
+        );
+
+        assertThat(responseItems)
+            .hasSize(2)
+            .extracting("status")
+            .containsOnly("not done");
+    }
+
+    @Test
+    void givenInvalidStatus_WhenGetTodoItems_ThenReturnsBadRequest() throws Exception {
+        // Given
+        when(todoItemService.getTodoItemsByStatus("invalid"))
+            .thenThrow(new InvalidStatusException("Invalid status value: 'invalid'"));
+
+        // When
+        MvcResult result = mockMvc.perform(get("/api/todos")
+                .param("status", "invalid"))
+                .andExpect(status().isBadRequest())
+                .andReturn();
+
+        // Then
+        String responseBody = result.getResponse().getContentAsString();
+        assertThat(responseBody)
+            .contains("Invalid Status")
+            .contains("Invalid status value: 'invalid'");
+    }
+
+    @Test
+    void givenNoStatusParameter_WhenGetTodoItems_ThenReturnsAllItems() throws Exception {
+        // Given
+        List<TodoResponseDTO> items = List.of(
+            new TodoResponseDTO(1L, "Task 1", "done", LocalDateTime.now(), null, null),
+            new TodoResponseDTO(2L, "Task 2", "not done", LocalDateTime.now(), null, null)
+        );
+        
+        when(todoItemService.getAllTodoItems()).thenReturn(items);
+
+        // When
+        MvcResult result = mockMvc.perform(get("/api/todos"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andReturn();
+
+        // Then
+        List<TodoResponseDTO> responseItems = objectMapper.readValue(
+            result.getResponse().getContentAsString(),
+            objectMapper.getTypeFactory().constructCollectionType(List.class, TodoResponseDTO.class)
+        );
+
+        assertThat(responseItems).hasSize(2);
+        assertThat(responseItems)
+            .extracting("status")
+            .containsExactlyInAnyOrder("done", "not done");
+    }
+
     /**
      * Test configuration that provides a mock TodoItemService bean.
      * This replaces the deprecated @MockBean approach with a modern @TestConfiguration.
      */
     @TestConfiguration
     static class TestConfig {
-        
+
         @Bean
         public TodoItemService todoItemService() {
             return Mockito.mock(TodoItemService.class);

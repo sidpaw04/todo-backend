@@ -11,12 +11,14 @@ import com.sidpaw.todobackend.repository.TodoItemRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -27,11 +29,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-/**
- * Unit tests for TodoItemService using Mockito.
- */
 @ExtendWith(MockitoExtension.class)
-class TodoItemServiceTest {
+class TodoItemServiceUnitTest {
 
     @Mock
     private TodoItemRepository todoItemRepository;
@@ -295,5 +294,12 @@ class TodoItemServiceTest {
                 "Original description".equals(saved.getDescription()) &&
                         TodoStatus.NOT_DONE.equals(saved.getStatus())
         ));
+    }
+
+    @Test
+    void givenInvalidStatus_WhenGetTodoItemsByStatus_ThenThrowsException() {
+        assertThatThrownBy(() -> todoItemService.getTodoItemsByStatus("invalid"))
+                .isInstanceOf(InvalidStatusException.class)
+                .hasMessageContaining("Invalid status");
     }
 }

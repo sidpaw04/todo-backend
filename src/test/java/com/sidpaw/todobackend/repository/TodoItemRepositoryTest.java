@@ -2,11 +2,11 @@ package com.sidpaw.todobackend.repository;
 
 import com.sidpaw.todobackend.entity.TodoItemEntity;
 import com.sidpaw.todobackend.model.TodoStatus;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
@@ -23,9 +23,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TodoItemRepositoryTest {
 
     @Autowired
-    private TestEntityManager entityManager;
-
-    @Autowired
     private TodoItemRepository todoItemRepository;
 
     private TodoItemEntity todoItem1;
@@ -35,7 +32,7 @@ class TodoItemRepositoryTest {
     @BeforeEach
     void setUp() {
         // Clear any existing data
-        entityManager.clear();
+        todoItemRepository.deleteAll();
 
         todoItem1 = new TodoItemEntity();
         todoItem1.setDescription("First task");
@@ -68,7 +65,7 @@ class TodoItemRepositoryTest {
         assertThat(saved.getStatus()).isEqualTo(TodoStatus.NOT_DONE);
 
         // Verify it's actually in the database
-        TodoItemEntity found = entityManager.find(TodoItemEntity.class, saved.getId());
+        TodoItemEntity found = todoItemRepository.findById(saved.getId()).orElse(null);
         assertThat(found).isNotNull();
         assertThat(found.getDescription()).isEqualTo("First task");
     }
@@ -76,7 +73,7 @@ class TodoItemRepositoryTest {
     @Test
     void givenExistingTodoItem_WhenFindById_ThenReturnsTodoItem() {
         // Given
-        TodoItemEntity saved = entityManager.persistAndFlush(todoItem1);
+        TodoItemEntity saved = todoItemRepository.save(todoItem1);
 
         // When
         Optional<TodoItemEntity> result = todoItemRepository.findById(saved.getId());
@@ -99,9 +96,7 @@ class TodoItemRepositoryTest {
     @Test
     void givenMultipleTodoItems_WhenFindAll_ThenReturnsAllItems() {
         // Given
-        entityManager.persistAndFlush(todoItem1);
-        entityManager.persistAndFlush(todoItem2);
-        entityManager.persistAndFlush(todoItem3);
+        todoItemRepository.saveAll(List.of(todoItem1, todoItem2, todoItem3));
 
         // When
         List<TodoItemEntity> result = todoItemRepository.findAll();
@@ -115,9 +110,7 @@ class TodoItemRepositoryTest {
     @Test
     void givenMultipleTodoItems_WhenFindAllByOrderByCreationDatetimeDesc_ThenReturnsOrderedList() {
         // Given
-        entityManager.persistAndFlush(todoItem1); // 2025-09-23
-        entityManager.persistAndFlush(todoItem2); // 2025-09-22 
-        entityManager.persistAndFlush(todoItem3); // 2025-09-21
+        todoItemRepository.saveAll(List.of(todoItem1, todoItem2, todoItem3));
 
         // When
         List<TodoItemEntity> result = todoItemRepository.findAllByOrderByCreationDatetimeDesc();
@@ -141,8 +134,7 @@ class TodoItemRepositoryTest {
     @Test
     void givenExistingTodoItem_WhenUpdate_ThenItemIsUpdated() {
         // Given
-        TodoItemEntity saved = entityManager.persistAndFlush(todoItem1);
-        entityManager.clear(); // Clear the persistence context
+        TodoItemEntity saved = todoItemRepository.save(todoItem1);
 
         // When
         saved.setDescription("Updated task description");
@@ -157,7 +149,8 @@ class TodoItemRepositoryTest {
         assertThat(updated.getDoneDatetime()).isNotNull();
 
         // Verify it's actually updated in the database
-        TodoItemEntity found = entityManager.find(TodoItemEntity.class, saved.getId());
+        TodoItemEntity found = todoItemRepository.findById(saved.getId()).orElse(null);
+        Assertions.assertNotNull(found);
         assertThat(found.getDescription()).isEqualTo("Updated task description");
         assertThat(found.getStatus()).isEqualTo(TodoStatus.DONE);
     }
@@ -165,31 +158,96 @@ class TodoItemRepositoryTest {
     @Test
     void givenExistingTodoItem_WhenDelete_ThenItemIsRemoved() {
         // Given
-        TodoItemEntity saved = entityManager.persistAndFlush(todoItem1);
+        TodoItemEntity saved = todoItemRepository.save(todoItem1);
         Long savedId = saved.getId();
 
         // When
         todoItemRepository.delete(saved);
-        entityManager.flush();
 
         // Then
-        TodoItemEntity found = entityManager.find(TodoItemEntity.class, savedId);
+        TodoItemEntity found = todoItemRepository.findById(savedId).orElse(null);
         assertThat(found).isNull();
-        
-        Optional<TodoItemEntity> result = todoItemRepository.findById(savedId);
-        assertThat(result).isEmpty();
     }
 
     @Test
     void givenTodoItems_WhenCount_ThenReturnsCorrectCount() {
         // Given
-        entityManager.persistAndFlush(todoItem1);
-        entityManager.persistAndFlush(todoItem2);
+        todoItemRepository.saveAll(List.of(todoItem1, todoItem2));
 
         // When
         long count = todoItemRepository.count();
 
         // Then
         assertThat(count).isEqualTo(2L);
+    }
+
+    @Test
+    void givenNoItems_WhenFindNotDoneItems_ThenReturnsEmptyList() {
+        List<TodoItemEntity> result = todoItemRepository.findNotDoneItems(LocalDateTime.now());
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void givenNotDoneItemsWithNoDueDate_WhenFindNotDoneItems_ThenReturnsAllItems() {
+        // Given
+        TodoItemEntity item1 = createTodoItem("Task 1", TodoStatus.NOT_DONE, null);
+        TodoItemEntity item2 = createTodoItem("Task 2", TodoStatus.NOT_DONE, null);
+        todoItemRepository.saveAll(List.of(item1, item2));
+
+        // When
+        List<TodoItemEntity> result = todoItemRepository.findNotDoneItems(LocalDateTime.now());
+
+        // Then
+        assertThat(result)
+            .hasSize(2)
+            .extracting("description")
+            .containsExactlyInAnyOrder("Task 1", "Task 2");
+    }
+
+    @Test
+    void givenMixedDueDates_WhenFindNotDoneItems_ThenReturnsFutureAndNullDueDatesOnly() {
+        // Given
+        LocalDateTime now = LocalDateTime.now();
+        TodoItemEntity pastDue = createTodoItem("Past due", TodoStatus.NOT_DONE, now.minusDays(1));
+        TodoItemEntity futureDue = createTodoItem("Future due", TodoStatus.NOT_DONE, now.plusDays(1));
+        TodoItemEntity noDueDate = createTodoItem("No due date", TodoStatus.NOT_DONE, null);
+        todoItemRepository.saveAll(List.of(pastDue, futureDue, noDueDate));
+
+        // When
+        List<TodoItemEntity> result = todoItemRepository.findNotDoneItems(now);
+
+        // Then
+        assertThat(result)
+            .hasSize(2)
+            .extracting("description")
+            .containsExactlyInAnyOrder("Future due", "No due date");
+    }
+
+    @Test
+    void givenDoneItemsWithDifferentCreationDates_WhenFindByStatus_ThenReturnsItemsInDescendingOrder() {
+        // Given
+        TodoItemEntity older = createTodoItem("Older task", TodoStatus.DONE, null);
+        older.setCreationDatetime(LocalDateTime.now().minusDays(2));
+        TodoItemEntity newer = createTodoItem("Newer task", TodoStatus.DONE, null);
+        newer.setCreationDatetime(LocalDateTime.now().minusDays(1));
+        todoItemRepository.saveAll(List.of(older, newer));
+
+        // When
+        List<TodoItemEntity> result = todoItemRepository.findByStatusOrderByCreationDatetimeDesc(TodoStatus.DONE);
+
+        // Then
+        assertThat(result)
+            .hasSize(2)
+            .extracting("description")
+            .containsExactly("Newer task", "Older task");
+    }
+
+    private TodoItemEntity createTodoItem(String description, TodoStatus status, LocalDateTime dueDate) {
+        TodoItemEntity item = new TodoItemEntity();
+        item.setDescription(description);
+        item.setStatus(status);
+        item.setDueDatetime(dueDate);
+        item.setCreationDatetime(LocalDateTime.now());
+        return item;
     }
 }

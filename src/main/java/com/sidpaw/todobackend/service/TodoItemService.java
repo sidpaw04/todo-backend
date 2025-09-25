@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -97,5 +98,17 @@ public class TodoItemService {
                 .orElseThrow(() -> new InvalidStatusException(
                     String.format("Invalid status value: '%s'. Valid values are: 'done', 'not done'", statusStr)
                 ));
+    }
+
+    public List<TodoResponseDTO> getTodoItemsByStatus(String requestedStatus) {
+        
+        TodoStatus status = TodoStatus.from(requestedStatus);
+        
+        return (status.equals(TodoStatus.NOT_DONE)
+                ? todoItemRepository.findNotDoneItems(LocalDateTime.now())
+                : todoItemRepository.findByStatusOrderByCreationDatetimeDesc(status))
+                .stream()
+                .map(todoItemMapper::toResponseDTO)
+                .toList();
     }
 }

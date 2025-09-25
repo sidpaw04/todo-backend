@@ -38,8 +38,9 @@ dependencies {
     implementation 'org.apache.commons:commons-lang3:3.18.0' // Override vulnerable 3.17.0
     implementation 'org.webjars:swagger-ui:5.27.1' // Override vulnerable swagger-ui version
     implementation 'org.mapstruct:mapstruct:1.5.5.Final'
+    implementation 'io.vavr:vavr:0.10.4'
 
-	compileOnly 'org.projectlombok:lombok'
+    compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	annotationProcessor 'org.projectlombok:lombok'
     annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.5.Final'

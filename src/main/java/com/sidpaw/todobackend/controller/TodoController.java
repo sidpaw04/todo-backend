@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.vavr.control.Try;
 
 import java.util.List;
 import java.util.Optional;
@@ -49,11 +50,13 @@ public class TodoController {
     @GetMapping
     @Operation(summary = "Get all todo items", description = "Retrieves all todo items ordered by creation date (newest first)")
     @ApiResponse(responseCode = "200", description = "Successfully retrieved todo items")
-    public ResponseEntity<List<TodoResponseDTO>> getAllTodoItems() {
-        
-        log.info("Received request to get all todo items");
-        List<TodoResponseDTO> todoItems = todoItemService.getAllTodoItems();
-        return ResponseEntity.ok(todoItems);
+    public ResponseEntity<List<TodoResponseDTO>> getAllTodoItems(
+            @Parameter(description = "Optional status filter ('done' or 'not done')")
+            @RequestParam(required = false) String status) {
+        if (status == null) {
+            return ResponseEntity.ok(todoItemService.getAllTodoItems());
+        }
+        return ResponseEntity.ok(todoItemService.getTodoItemsByStatus(status));
     }
 
     @GetMapping("/{id}")
@@ -77,7 +80,8 @@ public class TodoController {
     @Operation(summary = "Partially update a todo item", description = "Updates specified fields of a todo item")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Todo item updated successfully"),
-            @ApiResponse(responseCode = "404", description = "Todo item not found")
+            @ApiResponse(responseCode = "404", description = "Todo item not found"),
+            @ApiResponse(responseCode = "400", description = "Bad request - cannot update past due item or invalid status")
     })
     public ResponseEntity<TodoResponseDTO> patchTodoItem(
             @Parameter(description = "ID of the todo item to update") 
@@ -85,10 +89,11 @@ public class TodoController {
             @Valid @RequestBody TodoPatchDTO patchRequest) {
         
         log.info("Received request to patch todo item with ID: {}", id);
-        Optional<TodoResponseDTO> updatedTodoItem = todoItemService.patchTodo(id, patchRequest);
-        
-        return updatedTodoItem.map(ResponseEntity::ok)
-                              .orElse(ResponseEntity.notFound().build());
+        return Try.of(() -> todoItemService.patchTodo(id, patchRequest))
+                .map(opt -> opt.map(ResponseEntity::ok)
+                        .orElse(ResponseEntity.notFound().build()))
+                .recover(IllegalStateException.class, ResponseEntity.badRequest().build())
+                .get();
     }
 
 }
