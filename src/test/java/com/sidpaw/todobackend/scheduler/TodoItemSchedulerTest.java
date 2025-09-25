@@ -14,6 +14,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+import org.springframework.dao.DataAccessException;
 
 @SpringBootTest
 @Transactional
@@ -195,5 +200,22 @@ class TodoItemSchedulerTest {
         item.setDueDatetime(dueDate);
         item.setCreationDatetime(LocalDateTime.now());
         todoItemRepository.save(item);
+    }
+
+    @Test
+    void givenRepositoryFailure_whenUpdatingPastDueItems_thenThrowsRuntimeException() {
+        // Given
+        TodoItemRepository mockRepo = mock();
+        doThrow(new DataAccessException("Dummy database error") {})
+            .when(mockRepo)
+            .updatePastDueItems(any(), any(), any());
+        
+        TodoItemScheduler schedulerWithMockRepo = new TodoItemScheduler(mockRepo);
+
+        // When/Then
+        assertThatThrownBy(schedulerWithMockRepo::updatePastDueItems)
+            .isInstanceOf(RuntimeException.class)
+            .hasMessage("Failed to update past due items")
+            .hasCauseInstanceOf(DataAccessException.class);
     }
 }
