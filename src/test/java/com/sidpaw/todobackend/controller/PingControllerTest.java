@@ -22,10 +22,6 @@ class PingControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @BeforeEach
-    void setUp() {
-    }
-
     @Test
     void givenValidRequest_WhenCallingPingEndpoint_ThenReturnsSuccessResponse() throws Exception {
         mockMvc.perform(get("/api/ping")

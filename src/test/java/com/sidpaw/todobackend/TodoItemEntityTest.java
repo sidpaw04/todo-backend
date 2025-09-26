@@ -72,15 +72,15 @@ class TodoItemEntityTest {
         LocalDateTime doneDatetime = LocalDateTime.of(2025, 9, 25, 14, 30);
 
         // When
-        TodoItemEntity todoItem = new TodoItemEntity(id, description, status, creationDatetime, dueDatetime, doneDatetime);
+        TodoItemEntity dummyTodoItem = new TodoItemEntity(id, description, status, creationDatetime, dueDatetime, doneDatetime);
 
         // Then
-        assertThat(todoItem.getId()).isEqualTo(id);
-        assertThat(todoItem.getDescription()).isEqualTo(description);
-        assertThat(todoItem.getStatus()).isEqualTo(status);
-        assertThat(todoItem.getCreationDatetime()).isEqualTo(creationDatetime);
-        assertThat(todoItem.getDueDatetime()).isEqualTo(dueDatetime);
-        assertThat(todoItem.getDoneDatetime()).isEqualTo(doneDatetime);
+        assertThat(dummyTodoItem.getId()).isEqualTo(id);
+        assertThat(dummyTodoItem.getDescription()).isEqualTo(description);
+        assertThat(dummyTodoItem.getStatus()).isEqualTo(status);
+        assertThat(dummyTodoItem.getCreationDatetime()).isEqualTo(creationDatetime);
+        assertThat(dummyTodoItem.getDueDatetime()).isEqualTo(dueDatetime);
+        assertThat(dummyTodoItem.getDoneDatetime()).isEqualTo(doneDatetime);
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.sidpaw.todobackend.scheduler;
 
+import com.sidpaw.todobackend.exception.TodoSchedulerUpdateException;
 import com.sidpaw.todobackend.model.TodoStatus;
 import com.sidpaw.todobackend.repository.TodoItemRepository;
 import io.vavr.control.Try;
@@ -42,7 +43,7 @@ public class TodoItemScheduler {
                 )
                 .recover(ex -> {
                     logger.error("Error updating past due items", ex);
-                    throw new RuntimeException("Failed to update past due items", ex);
+                    throw new TodoSchedulerUpdateException("Failed to update past due items", ex);
                 })
                 .get();
     }

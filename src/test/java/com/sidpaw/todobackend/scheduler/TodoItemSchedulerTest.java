@@ -1,6 +1,7 @@
 package com.sidpaw.todobackend.scheduler;
 
 import com.sidpaw.todobackend.entity.TodoItemEntity;
+import com.sidpaw.todobackend.exception.TodoSchedulerUpdateException;
 import com.sidpaw.todobackend.model.TodoStatus;
 import com.sidpaw.todobackend.repository.TodoItemRepository;
 import jakarta.persistence.EntityManager;
@@ -203,7 +204,7 @@ class TodoItemSchedulerTest {
     }
 
     @Test
-    void givenRepositoryFailure_whenUpdatingPastDueItems_thenThrowsRuntimeException() {
+    void givenRepositoryFailure_whenUpdatingPastDueItems_thenThrowsTodoSchedulerUpdateException() {
         // Given
         TodoItemRepository mockRepo = mock();
         doThrow(new DataAccessException("Dummy database error") {})
@@ -214,7 +215,7 @@ class TodoItemSchedulerTest {
 
         // When/Then
         assertThatThrownBy(schedulerWithMockRepo::updatePastDueItems)
-            .isInstanceOf(RuntimeException.class)
+            .isInstanceOf(TodoSchedulerUpdateException.class)
             .hasMessage("Failed to update past due items")
             .hasCauseInstanceOf(DataAccessException.class);
     }

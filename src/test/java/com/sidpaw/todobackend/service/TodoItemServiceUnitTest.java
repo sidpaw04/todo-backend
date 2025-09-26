@@ -94,14 +94,14 @@ class TodoItemServiceUnitTest {
         entity.setStatus(TodoStatus.NOT_DONE);
         entity.setDueDatetime(request.getDueDatetime());
 
-        TodoResponseDTO expectedResponse = new TodoResponseDTO();
-        expectedResponse.setDescription("Test todo");
-        expectedResponse.setStatus("not done");
-        expectedResponse.setDueDatetime(request.getDueDatetime());
+        TodoResponseDTO expectedResponseDTO = new TodoResponseDTO();
+        expectedResponseDTO.setDescription("Test todo");
+        expectedResponseDTO.setStatus("not done");
+        expectedResponseDTO.setDueDatetime(request.getDueDatetime());
 
         when(todoItemMapper.toEntity(any(TodoRequestDTO.class))).thenReturn(entity);
         when(todoItemRepository.save(any(TodoItemEntity.class))).thenReturn(entity);
-        when(todoItemMapper.toResponseDTO(any(TodoItemEntity.class))).thenReturn(expectedResponse);
+        when(todoItemMapper.toResponseDTO(any(TodoItemEntity.class))).thenReturn(expectedResponseDTO);
 
         // When
         TodoResponseDTO result = todoItemService.createTodoItem(request);
