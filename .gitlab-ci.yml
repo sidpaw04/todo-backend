@@ -1,6 +1,5 @@
 image: eclipse-temurin:21-jdk
 
-#dummy change
 variables:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false"
   DOCKER_IMAGE_NAME: "todo-backend"
